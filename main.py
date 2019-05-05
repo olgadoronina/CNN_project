@@ -12,7 +12,7 @@ from keras.models import model_from_json
 import nn_keras
 
 plot_folder = './plots/'
-
+data_folder = '/home/olga/data/examples/'
 
 def main():
     np.random.seed(1234)
@@ -62,7 +62,7 @@ def main():
 
     # Load in data
     # data.load_data(dimension)
-    number_of_examples = 4040*3
+    number_of_examples = 20
     N_channels = 3
 
     # # traiing data
@@ -156,12 +156,14 @@ def main():
     if not os.path.isdir(plot_folder):
         os.makedirs(plot_folder)
 
-    y_filenames = ['/home/olga/data/examples/y_train/{}.npz'.format(i) for i in range(number_of_examples)]
-    X_filenames = ['/home/olga/data/examples/X_train_{}/{}.npz'.format(filter_type, i) for i in range(number_of_examples)]
-    valid_frac = 0.15
+    y_filenames = ['{}y_train/{}.npz'.format(data_folder, i) for i in range(number_of_examples)]
+    X_filenames = ['{}X_train_{}/{}.npz'.format(data_folder, filter_type, i) for i in range(number_of_examples)]
+    valid_frac = 0.1
     number_of_valid = int(valid_frac*number_of_examples)
     number_of_training = number_of_examples - number_of_valid
-    batch_size = 10
+    logging.info("number of training examples is {}".format(number_of_training))
+    logging.info("number of validation examples is {}".format(number_of_valid))
+    batch_size = 1
     my_training_batch_generator = nn_keras.MyGenerator(X_filenames[:number_of_training],
                                                        y_filenames[:number_of_training], batch_size)
     my_validation_batch_generator = nn_keras.MyGenerator(X_filenames[number_of_training:],

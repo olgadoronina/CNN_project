@@ -3,8 +3,8 @@ import logging
 import scipy.ndimage as ndimage
 import utils
 import filters
-import vtk
-from vtk.util.numpy_support import vtk_to_numpy
+# import vtk
+# from vtk.util.numpy_support import vtk_to_numpy
 import os
 data_folder = '/home/olga/data/JohnHopkins/2d_256_tstep2/'
 # data_folder = '/Users/olgadorr/data/'
