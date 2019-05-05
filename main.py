@@ -11,15 +11,13 @@ from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, SeparableConv2D
 from keras.models import model_from_json
 import nn_keras
 
-plot_folder = './plots/'
+plot_folder_base = './plots/'
 data_folder = '/home/olga/data/examples/'
+
 
 def main():
     np.random.seed(1234)
 
-    # Define base variables
-    Npoints_coarse2D = 256
-    # Npoints_coarse3D = 64
     data_output_folder_base = './data_output/'
     plot_folder_base = './plots/'
     data_output_folder = data_output_folder_base
@@ -32,20 +30,12 @@ def main():
     logging.info('numpy {}'.format(np.__version__))
     logging.info('64 bit {}\n'.format(sys.maxsize > 2 ** 32))
 
-    ########################## DEFINE MODEL ##########################
-    # model_type = 'CNN'
-    # Define the number of inputs to be used for creating the feature vectors.  See below for requirements:
 
-    # Define activation function to use for 'FF_1L' and 'FF_2L'
-    activation_function = 'sigmoid'
-    assert activation_function == 'relu' \
-           or activation_function == 'tanh' \
-           or activation_function == 'sigmoid', 'Incorrect activation function: {}'.fotmat(activation_function)
+    ########################## DEFINE DATA ##########################
+    # Define base variables
+    n_points = 256
+    n_channels = 3    # for 'u', 'v', 'w' velocity
 
-    ########################## FORMAT TRAINING AND TESTING ##########################
-    # Select number of dimensions to use for analysis: 2 or 3
-    dimension = 2
-    assert dimension == 2 or dimension == 3, 'Incorrect number of dimensions: {}'.format(dimension)
     # Select filter type to use: gaussian, median, or noise
     filter_type = "noise"
     assert filter_type == "gaussian" \
@@ -55,81 +45,36 @@ def main():
            or filter_type == "physical_sharp", \
         'Incorrect filter type: {}'.format(filter_type)
 
-    # Define arguments based on required dimensions
-    if dimension == 2:
-        Npoints_coarse = Npoints_coarse2D
-        size = (Npoints_coarse2D, Npoints_coarse2D)
-
-    # Load in data
-    # data.load_data(dimension)
-    number_of_examples = 20
-    N_channels = 3
-
-    # # traiing data
-    # data_all = np.empty((number_of_examples,) + size + (N_channels,))
-    # data_all[:4040] = np.load('/home/olga/data/examples/data_CNNx_y_slice.npz')['data_train']
-    # print('x_y')
-    # data_all[4040:8080] = np.load('/home/olga/data/examples/data_CNNx_z_slice.npz')['data_train']
-    # print('x_z')
-    # data_all[8080:] = np.load('/home/olga/data/examples/data_CNNy_z_slice.npz')['data_train']
-    # print('y_z')
-    # print(data_all.shape)
-    # # # shuffle indeces
-    # ind = np.arange(number_of_examples)
-    # np.random.shuffle(ind)
-    # data.save_shuffled_truth_data(data_all, ind)
-    # data.filter_and_save_shuffled_data(data_all, ind, filter_type)
-    # del data_all
-
-
-
-    # #    # test data
-    # data_test = np.empty((3333,) + size + (N_channels,))
-    # data_test[:1111] = np.load('/home/olga/data/examples/data_CNNx_y_slice.npz')['data_test']
-    # print('x_y')
-    # data_test[1111:2222] = np.load('/home/olga/data/examples/data_CNNx_z_slice.npz')['data_test']
-    # print('x_z')
-    # data_test[2222:] = np.load('/home/olga/data/examples/data_CNNy_z_slice.npz')['data_test']
-    # print('y_z')
-    # print(data_test.shape)
-    #
-    # x_test = data.filter_and_save_test_data(data_test, filter_type)
-    # print(x_test)
-    # exit()
-
-    # for i in range(number):
-    #     print(i)
-    #     data_new = data[ind[404*i:404*(i+1)]]
-    #     np.savez('/home/olga/data/examples/data'+str(i)+'.npz', data=data_new)
-    #     del data_new
-    # for i in range(30):
-    #     print(i)
-    #     data_tmp = np.load('/home/olga/data/examples/data'+str(i)+'.npz')['data']
-    #     for j, example in enumerate(data_tmp):  # Below just applies filter, keeping it in shapes of [256, 256]
-    #         filtered = data.filtering(filter_type, example, dimension)
-    #         np.savez('/home/olga/data/examples/y_train/{}.npz'.format(i * 404 + j), y_train=data_tmp[j])
-    #         np.savez('/home/olga/data/examples/X_train_noise/{}.npz'.format(i * 404 + j), X_train=filtered)
-    #     del data_tmp
-
-
-    # ########################## RUN MODEL ##########################
-
+    logging.info('Filter type is {}'.format(filter_type))
+    plot_folder = os.path.join(plot_folder_base, filter_type)
+    if not os.path.isdir(plot_folder): os.makedirs(plot_folder)
+    ########################## DEFINE MODEL ##########################
+    # model_type = 'CNN'
+    valid_frac = 0.1
+    batch_size = 1
     epochs = 10
-    N_channels = 3    # for 'u', 'v', 'w' velocity
-    logging.info('Run CNN for {} epochs'.format(epochs))
-    #
-    input_shape = (int(3/2*Npoints_coarse), int(3/2*Npoints_coarse), N_channels)
-    # Initialize model
-    model = Sequential()
+    number_of_examples = 3*4040
+    number_of_valid = int(valid_frac*number_of_examples)
+    number_of_training = number_of_examples - number_of_valid
+    logging.info("number of training examples is {}".format(number_of_training))
+    logging.info("number of validation examples is {}".format(number_of_valid))
+
+    # Define activation function to use for 'FF_1L' and 'FF_2L'
+    activation_function = 'sigmoid'
+    assert activation_function == 'relu' \
+           or activation_function == 'tanh' \
+           or activation_function == 'sigmoid', 'Incorrect activation function: {}'.fotmat(activation_function)
+    # ########################## INIT MODEL ##########################
+    logging.info('CNN with {} for {} epochs'.format(number_of_examples, epochs))
+    input_shape = (int(3/2*n_points), int(3/2*n_points), n_channels)
+
+    model = Sequential()        # Initialize model
     # Encoder
-    model.add(Conv2D(38, kernel_size=(1, 129),
-                     activation=activation_function, kernel_initializer='normal',
+    model.add(Conv2D(38, kernel_size=(1, 129), activation=activation_function, kernel_initializer='he_normal',
                      input_shape=input_shape, padding='valid'))
-    model.add(Conv2D(38, kernel_size=(129, 1),
-                     activation=activation_function, kernel_initializer='he_normal',
+    model.add(Conv2D(38, kernel_size=(129, 1), activation=activation_function, kernel_initializer='he_normal',
                      input_shape=input_shape, padding='valid'))
-    model.add(Conv2D(3, kernel_size=(1, 1),
-                     activation=activation_function, kernel_initializer='he_normal',
+    model.add(Conv2D(3, kernel_size=(1, 1), activation=activation_function, kernel_initializer='he_normal',
                      input_shape=input_shape, padding='valid'))
 
     # # model.add(MaxPooling2D((2, 2), padding='same'))
@@ -150,20 +95,12 @@ def main():
     # compile model
     model.compile(loss='mean_squared_error', optimizer='adam')
     logging.info(model.summary())
-#
-    logging.info('{}'.format(filter_type))
-    plot_folder = os.path.join(plot_folder_base, filter_type)
-    if not os.path.isdir(plot_folder):
-        os.makedirs(plot_folder)
-
-    y_filenames = ['{}y_train/{}.npz'.format(data_folder, i) for i in range(number_of_examples)]
-    X_filenames = ['{}X_train_{}/{}.npz'.format(data_folder, filter_type, i) for i in range(number_of_examples)]
-    valid_frac = 0.1
-    number_of_valid = int(valid_frac*number_of_examples)
-    number_of_training = number_of_examples - number_of_valid
-    logging.info("number of training examples is {}".format(number_of_training))
-    logging.info("number of validation examples is {}".format(number_of_valid))
-    batch_size = 1
+    ########################## RUN MODEL ##########################
+    # Data generators
+    y_foldername = os.path.join(data_folder, 'y_train')
+    x_foldername = os.path.join(data_folder, 'X_train_{}'.format(filter_type))
+    y_filenames = [os.path.join(y_foldername, '{}.npz'.format(i)) for i in range(number_of_examples)]
+    X_filenames = [os.path.join(x_foldername, '{}.npz'.format(i)) for i in range(number_of_examples)]
     my_training_batch_generator = nn_keras.MyGenerator(X_filenames[:number_of_training],
                                                        y_filenames[:number_of_training], batch_size)
     my_validation_batch_generator = nn_keras.MyGenerator(X_filenames[number_of_training:],

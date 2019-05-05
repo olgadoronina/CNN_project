@@ -91,7 +91,7 @@ def filter(data_array, filter_type, k):
     return filtered_array
 
 
-def filter_size(filter_type, dim):
+def filter_size(filter_type, dim=2):
     if filter_type == 'gaussian':
         k = [1, 1.1, 0.9]
     elif filter_type == 'median':
