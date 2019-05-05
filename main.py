@@ -12,7 +12,7 @@ from keras.models import model_from_json
 import nn_keras
 
 plot_folder_base = './plots/'
-data_folder = '/home/olga/data/examples/'
+data_folder = '/home/olga/data/examples/32_bit/'
 
 
 def main():
@@ -51,9 +51,9 @@ def main():
     ########################## DEFINE MODEL ##########################
     # model_type = 'CNN'
     valid_frac = 0.1
-    batch_size = 1
-    epochs = 10
-    number_of_examples = 3*4040
+    batch_size = 20
+    epochs = 5
+    number_of_examples = 2000
     number_of_valid = int(valid_frac*number_of_examples)
     number_of_training = number_of_examples - number_of_valid
     logging.info("number of training examples is {}".format(number_of_training))
@@ -64,37 +64,13 @@ def main():
     assert activation_function == 'relu' \
            or activation_function == 'tanh' \
            or activation_function == 'sigmoid', 'Incorrect activation function: {}'.fotmat(activation_function)
+
+    loss_func = 'mean_squared_error'
+    optimizer = 'adam'
     # ########################## INIT MODEL ##########################
     logging.info('CNN with {} for {} epochs'.format(number_of_examples, epochs))
-    input_shape = (int(3/2*n_points), int(3/2*n_points), n_channels)
-
-    model = Sequential()        # Initialize model
-    # Encoder
-    model.add(Conv2D(38, kernel_size=(1, 129), activation=activation_function, kernel_initializer='he_normal',
-                     input_shape=input_shape, padding='valid'))
-    model.add(Conv2D(38, kernel_size=(129, 1), activation=activation_function, kernel_initializer='he_normal',
-                     input_shape=input_shape, padding='valid'))
-    model.add(Conv2D(3, kernel_size=(1, 1), activation=activation_function, kernel_initializer='he_normal',
-                     input_shape=input_shape, padding='valid'))
-
-    # # model.add(MaxPooling2D((2, 2), padding='same'))
-    # # model.add(Conv2D(32, (3, 3),
-    # #                  activation=activation_function, kernel_initializer='normal', padding='same'))
-    # # model.add(MaxPooling2D((2, 2), padding='same'))
-    #
-    #
-    # # Decoder
-    # # model.add(Conv2D(32, (3, 3), activation=activation_function, kernel_initializer='normal', padding='same'))
-    # # model.add(UpSampling2D((2, 2)))
-    # # model.add(Conv2D(32, (3, 3), activation=activation_function, kernel_initializer='normal', padding='same'))
-    # # model.add(UpSampling2D((2, 2)))
-    # # model.add(Conv2D(16, (3, 3), activation='sigmoid'))
-    # # model.add(UpSampling2D((2, 2)))
-    # # model.add(Conv2D(3, (3, 3), activation=activation_function, kernel_initializer='normal', padding='same'))
-
-    # compile model
-    model.compile(loss='mean_squared_error', optimizer='adam')
-    logging.info(model.summary())
+    cnn = nn_keras.MyKerasCNN(n_points, activation_function)
+    model = cnn.deconv_cnn_model(loss_func, optimizer)
     ########################## RUN MODEL ##########################
     # Data generators
     y_foldername = os.path.join(data_folder, 'y_train')
@@ -107,15 +83,19 @@ def main():
                                                          y_filenames[number_of_training:], batch_size)
 
     training = model.fit_generator(generator=my_training_batch_generator,
-                        steps_per_epoch=(number_of_training // batch_size),
-                        epochs=epochs,
-                        verbose=1,
-                        validation_data=my_validation_batch_generator,
-                        validation_steps=(number_of_valid // batch_size),
-                        use_multiprocessing=True,
-                        workers=1,
-                        max_queue_size=1)
+                                   epochs=epochs,
+                                   verbose=1,
+                                   validation_data=my_validation_batch_generator,
+                                   use_multiprocessing=True,
+                                   workers=1,
+                                   max_queue_size=1)
 
+    model_json = model.to_json()
+    with open("model.json", "w") as json_file:
+        json_file.write(model_json)
+    # serialize weights to HDF5
+    model.save_weights("model.h5")
+    print("Saved model to disk")
 
     plotting.plot_loss_per_epoch(plot_folder, epochs, training.history)
 
@@ -123,12 +103,7 @@ def main():
     # scores = model.evaluate(X, Y, verbose=0)
     # print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
     # serialize model to JSON
-    model_json = model.to_json()
-    with open("model.json", "w") as json_file:
-        json_file.write(model_json)
-    # serialize weights to HDF5
-    model.save_weights("model.h5")
-    print("Saved model to disk")
+
 
     # # later...
     #
@@ -181,3 +156,32 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+    # input_shape = (int(3/2*n_points), int(3/2*n_points), n_channels)
+    #
+    # model = Sequential()        # Initialize model
+    # # Encoder
+    # model.add(Conv2D(38, kernel_size=(1, 129), activation=activation_function, kernel_initializer='he_normal',
+    #                  input_shape=input_shape, padding='valid'))
+    # model.add(Conv2D(38, kernel_size=(129, 1), activation=activation_function, kernel_initializer='he_normal',
+    #                  input_shape=input_shape, padding='valid'))
+    # model.add(Conv2D(3, kernel_size=(1, 1), activation=activation_function, kernel_initializer='he_normal',
+    #                  input_shape=input_shape, padding='valid'))
+
+    # # model.add(MaxPooling2D((2, 2), padding='same'))
+    # # model.add(Conv2D(32, (3, 3),
+    # #                  activation=activation_function, kernel_initializer='normal', padding='same'))
+    # # model.add(MaxPooling2D((2, 2), padding='same'))
+    #
+    #
+    # # Decoder
+    # # model.add(Conv2D(32, (3, 3), activation=activation_function, kernel_initializer='normal', padding='same'))
+    # # model.add(UpSampling2D((2, 2)))
+    # # model.add(Conv2D(32, (3, 3), activation=activation_function, kernel_initializer='normal', padding='same'))
+    # # model.add(UpSampling2D((2, 2)))
+    # # model.add(Conv2D(16, (3, 3), activation='sigmoid'))
+    # # model.add(UpSampling2D((2, 2)))
+    # # model.add(Conv2D(3, (3, 3), activation=activation_function, kernel_initializer='normal', padding='same'))

@@ -262,10 +262,10 @@ def main():
     # # shuffle indices
     ind = np.arange(n_all)
     np.random.shuffle(ind)
-    logging.info('Saving truth data')
-    save_shuffled_truth_data(data_all, ind, data_folder)
+    # logging.info('Saving truth data')
+    # save_shuffled_truth_data(data_all, ind, data_folder)
 
-    filter_type = "noise"
+    filter_type = "gaussian"
     assert filter_type == "gaussian" \
            or filter_type == "median" \
            or filter_type == "noise" \
