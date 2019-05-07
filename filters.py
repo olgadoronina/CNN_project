@@ -44,6 +44,7 @@ def sinc_kernel(k, limit):
     kernel = np.sinc(a/limit)
     return kernel
 
+
 def filter_sharp_array(data_array, filter_type, scale_k):
     """
     Sharp filter in Fourier space for arrays.

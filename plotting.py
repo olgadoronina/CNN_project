@@ -21,7 +21,7 @@ fig_size = [fig_width, fig_height]
 mpl.rcParams['figure.figsize'] = fig_size
 # plt.rcParams['figure.autolayout'] = True
 
-mpl.rcParams['font.size'] = 10
+mpl.rcParams['font.size'] = 16
 mpl.rcParams['font.family'] = 'Times New Roman'
 mpl.rc('text', usetex=True)
 mpl.rcParams['axes.labelsize'] = plt.rcParams['font.size']
@@ -62,23 +62,23 @@ def plot_loss_per_epoch(plot_folder, epochs, history):
 
 def plot_velocities_and_spectra(x_test, y_test, y_predict, plot_folder):
     logging.info('Plot predicted velocities')
-    dimension = len(y_test[0, :, :, 0].shape)
+    dimension = len(y_test[:, :, 0].shape)
     if dimension == 2:
         for test_example in range(3):
-            imagesc([y_test[test_example, 0:32, 0:32, 0],
-                     x_test[test_example, 0:32, 0:32, 0],
-                     y_predict[test_example, 0:32, 0:32, 0]],
+            imagesc([y_test[0:, 0:, 0],
+                     x_test[test_example, :, :, 0],
+                     y_predict[test_example, :, :, 0]],
                     [r'$u_{true}$', r'$u_{filtered}$', r'$u_{predicted}$'],
                     os.path.join(plot_folder, 'u_{}'.format(test_example)))
-            imagesc([y_test[test_example, 0:32, 0:32, 1],
+            imagesc([y_test[0:32, 0:32, 1],
                      x_test[test_example, 0:32, 0:32, 1],
                      y_predict[test_example, 0:32, 0:32, 1]],
-                    [r'$u_{true}$', r'$u_{filtered}$', r'$u_{predicted}$'],
+                    [r'$v_{true}$', r'$v_{filtered}$', r'$v_{predicted}$'],
                     os.path.join(plot_folder, 'v_{}'.format(test_example)))
-            imagesc([y_test[test_example, 0:32, 0:32, 2],
+            imagesc([y_test[0:32, 0:32, 2],
                      x_test[test_example, 0:32, 0:32, 2],
                      y_predict[test_example, 0:32, 0:32, 2]],
-                    [r'$u_{true}$', r'$u_{filtered}$', r'$u_{predicted}$'],
+                    [r'$w_{true}$', r'$w_{filtered}$', r'$w_{predicted}$'],
                     os.path.join(plot_folder, 'w_{}'.format(test_example)))
     # else:
     #     for test_example in range(3):
@@ -100,7 +100,7 @@ def plot_velocities_and_spectra(x_test, y_test, y_predict, plot_folder):
 
     logging.info('Calculate and plot spectra')
     for test_example in range(3):
-        utils.spectral_density(y_test[test_example],
+        utils.spectral_density(y_test,
                                os.path.join(plot_folder, 'true{}'.format(test_example)))
         utils.spectral_density(x_test[test_example],
                                os.path.join(plot_folder, 'filtered{}'.format(test_example)))

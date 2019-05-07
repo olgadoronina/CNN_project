@@ -52,7 +52,7 @@ def main():
     # model_type = 'CNN'
     valid_frac = 0.1
     batch_size = 20
-    epochs = 5
+    epochs = 1
     number_of_examples = 2000
     number_of_valid = int(valid_frac*number_of_examples)
     number_of_training = number_of_examples - number_of_valid
@@ -67,10 +67,14 @@ def main():
 
     loss_func = 'mean_squared_error'
     optimizer = 'adam'
+    n_kernels = 3
+    kernel_size = 29
     # ########################## INIT MODEL ##########################
     logging.info('CNN with {} for {} epochs'.format(number_of_examples, epochs))
     cnn = nn_keras.MyKerasCNN(n_points, activation_function)
-    model = cnn.deconv_cnn_model(loss_func, optimizer)
+    model = cnn.deconv_cnn_model(loss_func, optimizer, n_kernels, kernel_size)
+    n_padding = int((kernel_size - 1)/2)
+    print(n_padding)
     ########################## RUN MODEL ##########################
     # Data generators
     y_foldername = os.path.join(data_folder, 'y_train')
@@ -78,9 +82,11 @@ def main():
     y_filenames = [os.path.join(y_foldername, '{}.npz'.format(i)) for i in range(number_of_examples)]
     X_filenames = [os.path.join(x_foldername, '{}.npz'.format(i)) for i in range(number_of_examples)]
     my_training_batch_generator = nn_keras.MyGenerator(X_filenames[:number_of_training],
-                                                       y_filenames[:number_of_training], batch_size)
+                                                       y_filenames[:number_of_training],
+                                                       n_channels, n_points, n_padding, batch_size)
     my_validation_batch_generator = nn_keras.MyGenerator(X_filenames[number_of_training:],
-                                                         y_filenames[number_of_training:], batch_size)
+                                                         y_filenames[number_of_training:],
+                                                         n_channels, n_points, n_padding, batch_size)
 
     training = model.fit_generator(generator=my_training_batch_generator,
                                    epochs=epochs,
@@ -89,52 +95,57 @@ def main():
                                    use_multiprocessing=True,
                                    workers=1,
                                    max_queue_size=1)
-
+    #
     model_json = model.to_json()
     with open("model.json", "w") as json_file:
         json_file.write(model_json)
-    # serialize weights to HDF5
-    model.save_weights("model.h5")
-    print("Saved model to disk")
-
-    plotting.plot_loss_per_epoch(plot_folder, epochs, training.history)
-
-    # evaluate the model
-    # scores = model.evaluate(X, Y, verbose=0)
-    # print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
-    # serialize model to JSON
-
-
-    # # later...
+    model.save_weights("model.h5")      # serialize weights to HDF5
+    logging.info("Saved model to disk")
     #
+    # plotting.plot_loss_per_epoch(plot_folder, epochs, training.history)
+    #
+    # # # evaluate the model
+    # # scores = model.evaluate(X, Y, verbose=0)
+    # # print("%s: %.2f%%" % (model.metrics_names[1], scores[1] * 100))
+    # # # serialize model to JSON
+    #
+
+    # later...
+
     # # load json and create model
     # json_file = open('model.json', 'r')
     # loaded_model_json = json_file.read()
     # json_file.close()
-    # loaded_model = model_from_json(loaded_model_json)
-    # # load weights into new model
-    # loaded_model.load_weights("model.h5")
-    # print("Loaded model from disk")
-    # model.compile(loss='mean_squared_error', optimizer='adam')
+    # model = model_from_json(loaded_model_json)
+    # model.load_weights("model.h5")              # load weights into new model
+    # logging.info("Loaded model from disk")
+    # model.compile(loss=loss_func, optimizer=optimizer)
     # logging.info(model.summary())
 
 
     # # evaluate loaded model on test data
-    # loaded_model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
     # score = loaded_model.evaluate(X, Y, verbose=0)
 
-    #     new_shape = (1,) + X_test[0].shape
-    #     # # Evaluate model, validating on same test set key as trained on
-    #     test_eval = model.evaluate(X_test[0].reshape(new_shape), y_test[0].reshape(new_shape), verbose=0)
-    #     test_eval_smaller = model.evaluate(X_test[1].reshape(new_shape), y_test[1].reshape(new_shape), verbose=0)
-    #     test_eval_bigger = model.evaluate(X_test[2].reshape(new_shape), y_test[2].reshape(new_shape), verbose=0)
-    #     print('Test loss same filter:', test_eval)
-    #     print('Test loss smaller filter:', test_eval_smaller)
-    #     print('Test loss bigger filter:', test_eval_bigger)
-    # #
-    #     y_predict = model.predict(X_test)
-    #
-    #     plotting.plot_velocities_and_spectra(X_test, y_test, y_predict, plot_folder)
+    y_test = np.load(os.path.join(data_folder, 'y_test.npz'))['y_test']
+    X_tmp = np.load(os.path.join(data_folder, 'X_test_{}.npz'.format(filter_type)))['X_test']
+    X_test = np.empty((X_tmp.shape[0], n_points+2*n_padding, n_points+2*n_padding, n_channels))
+    for i in range(X_tmp.shape[0]):
+        for j in range(3):
+            X_test[i, :, :, j] = np.pad(X_tmp[i, :, :, j], ((n_padding, n_padding), (n_padding, n_padding)), 'wrap')
+    new_shape_x = (1,) + X_test[0].shape
+    new_shape_y = (1,) + y_test.shape
+
+    # # Evaluate model, validating on same test set key as trained on
+    test_eval = model.evaluate(X_test[0].reshape(new_shape_x), y_test.reshape(new_shape_y))
+    test_eval_smaller = model.evaluate(X_test[1].reshape(new_shape_x), y_test.reshape(new_shape_y))
+    test_eval_bigger = model.evaluate(X_test[2].reshape(new_shape_x), y_test.reshape(new_shape_y))
+    logging.info('Test loss same filter: {}'.format(test_eval))
+    logging.info('Test loss smaller filter: {}'.format(test_eval_smaller))
+    logging.info('Test loss bigger filter: {}'.format(test_eval_bigger))
+#
+    y_predict = model.predict(X_test)
+    print(y_predict)
+    plotting.plot_velocities_and_spectra(X_test[:, n_padding:-n_padding, n_padding:-n_padding, :], y_test, y_predict, plot_folder)
 
     # # Record training time for each model
     # training_time.append("{}epochs {}neurons: {}".format(epochs, neurons, model.training_time))

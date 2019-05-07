@@ -14,10 +14,13 @@ import utils
 
 class MyGenerator(Sequence):
 
-    def __init__(self, X_filenames, y_filenames, batch_size):
+    def __init__(self, X_filenames, y_filenames, n_channels, n_points, n_padding, batch_size):
         self.X_filenames = X_filenames
         self.y_filenames = y_filenames
         self.batch_size = batch_size
+        self.n_points = n_points
+        self.n_padding = n_padding
+        self.n_channels = n_channels
 
     def __len__(self):
         return int(np.ceil(len(self.X_filenames) / float(self.batch_size)))
@@ -25,12 +28,13 @@ class MyGenerator(Sequence):
     def __getitem__(self, idx):
         x_batch = self.X_filenames[idx * self.batch_size: (idx + 1) * self.batch_size]
         y_batch = self.y_filenames[idx * self.batch_size: (idx + 1) * self.batch_size]
-        X = np.empty((len(x_batch), 384, 384, 3))
-        y = np.empty((len(y_batch), 256, 256, 3))
+        X = np.empty((len(x_batch), self.n_points+2*self.n_padding, self.n_points+2*self.n_padding, self.n_channels))
+        y = np.empty((len(y_batch), self.n_points, self.n_points, self.n_channels))
         for i in range(len(x_batch)):
             X_tmp = np.load(x_batch[i])['X_train']
-            for j in range(3):
-                X[i, :, :, j] = np.pad(X_tmp[:, :, j], ((64, 64), (64, 64)), 'wrap')
+            for j in range(self.n_channels):
+                X[i, :, :, j] = np.pad(X_tmp[:, :, j],
+                                       ((self.n_padding, self.n_padding), (self.n_padding, self.n_padding)), 'wrap')
             y[i] = np.load(y_batch[i])['y_train']
         return X, y
 
@@ -41,23 +45,31 @@ class MyKerasCNN():
         self.n_points = n_points
         self.n_channels = 3
         self.act_fun = activation_function
-        self.predictions = []
-        self.true = []
-        self.mse = []
+        # self.predictions = []
+        # self.true = []
+        # self.mse = []
         self.model = None
 
-    def deconv_cnn_model(self, loss_func, opt):
+    def deconv_cnn_model(self, loss_func, opt, n_kernels, kernel_size):
         # create model
-        input_shape = (int(3 / 2 * self.n_points), int(3 / 2 * self.n_points), self.n_channels)
+        n_padding = int((kernel_size - 1)/2)
+        print(n_padding)
+        input_shape = (2*n_padding+self.n_points, 2*n_padding+self.n_points, self.n_channels)
         model = Sequential()  # Initialize model
         # Deconv CNN
-        model.add(Conv2D(38, kernel_size=(1, 129), activation=self.act_fun, kernel_initializer='he_normal',
+        model.add(Conv2D(n_kernels, kernel_size=(kernel_size, kernel_size), activation=self.act_fun, kernel_initializer='he_normal',
                          input_shape=input_shape, padding='valid'))
-        model.add(Conv2D(38, kernel_size=(129, 1), activation=self.act_fun, kernel_initializer='he_normal',
-                         input_shape=input_shape, padding='valid'))
-        model.add(Conv2D(3, kernel_size=(1, 1), activation=self.act_fun, kernel_initializer='he_normal',
-                         input_shape=input_shape, padding='valid'))
-
+        # model.add(Conv2D(n_kernels, kernel_size=(kernel_size, 1), activation=self.act_fun, kernel_initializer='he_normal',
+        #                  input_shape=input_shape, padding='valid'))
+        # # model.add(Conv2D(3, kernel_size=(1, 1), activation=self.act_fun, kernel_initializer='he_normal',
+        # #                  input_shape=input_shape, padding='valid'))
+        # model.add(Conv2D(128, kernel_size=(16, 16), kernel_initializer='he_normal',
+        #                  padding='valid'))
+        # # Denoising CNN
+        # model.add(Conv2D(512, kernel_size=(1, 1), activation=self.act_fun, kernel_initializer='he_normal',
+        #                  padding='valid'))
+        # model.add(Conv2D(3, kernel_size=(8, 8), activation=self.act_fun, kernel_initializer='he_normal',
+        #                  padding='valid'))
         # compile model
         model.compile(loss=loss_func, optimizer=opt)
         logging.info(model.summary())
