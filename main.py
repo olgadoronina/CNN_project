@@ -125,7 +125,6 @@ def main():
     y_predict = model.predict(x_test)
     np.savez(os.path.join(plot_folder, 'y_predict'),
              y_predict0=y_predict[0], y_predict1=y_predict[1], y_predict2=y_predict[2])
-    print(y_predict)
     plotting.plot_velocities_and_spectra(x_test[:, n_padding:-n_padding, n_padding:-n_padding, :],
                                          y_test, y_predict, plot_folder)
 
