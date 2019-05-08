@@ -1,19 +1,16 @@
-import numpy as np
+import os
 import logging
+import numpy as np
 import scipy.ndimage as ndimage
-# import utils
-import filters
 # import vtk
 # from vtk.util.numpy_support import vtk_to_numpy
-import os
 
+# import utils
+import filters
 
-data_folder_slices = '/home/olga/data/JohnHopkins/2d_256_tstep2/'
-data_folder_base = '/home/olga/data/examples/'
-# data_folder = '/Users/olgadorr/data/'
-# read_from_cvs = 1
+DATA_FOLDER_SLICES = '/home/olga/data/JohnHopkins/2d_256_tstep2/'
+DATA_FOLDER_BASE = '/Users/olgadorr/Classes/2019_Spring/Nueral Nets/'
 
-#
 # def vti_to_numpy(filename):
 #     print(filename)
 #     reader = vtk.vtkXMLImageDataReader()
@@ -36,7 +33,7 @@ data_folder_base = '/home/olga/data/examples/'
 def load_data(folder, n_bit):
     """
     Load data from .csv and populate with rotations, reflections an d shifting
-    :param folder: path to save samples
+    :param folder: path to save populated slices in .npz format
     :param n_bit: type of data (32 or 64)
     :return: (number of train examples, number of test examples)
     """
@@ -54,7 +51,7 @@ def load_data(folder, n_bit):
         data_test = []
         for i in filenames:
             print(i)
-            filename = data_folder_slices + slices + 'cutout.' + str(i)
+            filename = DATA_FOLDER_SLICES + slices + 'cutout.' + str(i)
             velocity = np.empty((256, 256, 3), dtype=dtype)
             data = np.genfromtxt(filename + '.csv', delimiter=',')[1:]
             # Normalize
@@ -106,14 +103,14 @@ def load_data(folder, n_bit):
                     data_train.append(v_shifted)
             else:
                 data_test.append(velocity)
-                for sh in np.arange(10, 256, 10):
-                    v_shifted = np.roll(velocity, shift=sh, axis=1)     # shifting horizontally
+                for shift in np.arange(10, 256, 10):
+                    v_shifted = np.roll(velocity, shift=shift, axis=1)     # shifting horizontally
                     data_test.append(v_shifted)
-                    v_shifted = np.roll(velocity, shift=sh, axis=0)     # shifting vertically
+                    v_shifted = np.roll(velocity, shift=shift, axis=0)     # shifting vertically
                     data_test.append(v_shifted)
-                    v_shifted = np.roll(velocity, shift=(sh, sh), axis=(1, 0))  # shifting diagonally
+                    v_shifted = np.roll(velocity, shift=(shift, shift), axis=(1, 0))  # shifting diagonally
                     data_test.append(v_shifted)
-                    v_shifted = np.roll(velocity, shift=(-sh, sh), axis=(1, 0))  # shifting diagonally
+                    v_shifted = np.roll(velocity, shift=(-shift, shift), axis=(1, 0))  # shifting diagonally
                     data_test.append(v_shifted)
         number_of_examples += len(data_train)
         number_of_test += len(data_test)
@@ -127,44 +124,56 @@ def load_data(folder, n_bit):
 
 
 def save_shuffled_truth_data(data_all, ind, folder):
+    """ Save truth data examples by one according to randomly shuffled indices.
+    :param data_all: all truth training data
+    :param ind:  randomly shuffled indices
+    :param folder: path to save examples
+    :return:
+    """
     number_of_examples = len(ind)
     folder = os.path.join(folder, 'y_train')
-    if not os.path.isdir(folder): os.makedirs(folder)
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
     for i in range(number_of_examples):
         print(i)
         np.savez(os.path.join(folder, '{}.npz'.format(i)), y_train=data_all[ind[i]])
-    return
 
 
 def filter_and_save_shuffled_data(data_all, ind, filter_type, folder):
+    """ Filter and save training data examples by one according to randomly shuffled indices.
+    :param data_all: all truth training data
+    :param ind: randomly shuffled indices
+    :param filter_type: type of filtering applied
+    :param folder: path to save filtered examples
+    :return:
+    """
     number_of_examples = len(ind)
     folder = os.path.join(folder, 'X_train_{}'.format(filter_type))
-    if not os.path.isdir(folder): os.makedirs(folder)
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
     for i in range(number_of_examples):
         filtered = filtering(filter_type, data_all[ind[i]])
         print(i, np.dtype(filtered.dtype))
         np.savez(os.path.join(folder, '{}.npz'.format(i)), X_train=filtered)
-    return
 
 
 def filter_and_save_test_data(data_test, filter_type, folder):
-
-    # number_of_examples = len(data_test)
-    number_of_examples = 1
-    # filtered = np.empty((3, 256, 256, 3))
-    for i in range(number_of_examples):
-        filtered = filtering_test(filter_type, data_test)
-    np.savez(os.path.join(folder, 'X_test_noise.npz'), X_test=filtered)
+    """ Filter and save test data examples into .npz file.
+    :param data_test: truth test data
+    :param filter_type: type of filter applied
+    :param folder: path to save filtered examples in .npz file.
+    :return:
+    """
+    filtered = filtering_test(filter_type, data_test)
+    np.savez(os.path.join(folder, 'X_test_{}.npz'.format(filter_type)), X_test=filtered)
     np.savez(os.path.join(folder, 'y_test.npz'), y_test=data_test)
-    return
 
 
-def filtering(filter_type, data_train, dimension=2):
+def filtering(filter_type, data_train):
     """
     Filter example of train set with given filter type.
     :param filter_type: type of filter
     :param data_train: np.array of one train example
-    :param dimension: dimension of velocity field (2 or 3)
     :return: np.array of filtered fields
     """
 
@@ -172,19 +181,18 @@ def filtering(filter_type, data_train, dimension=2):
     sigma = filters.filter_size(filter_type)[0]
     if filter_type == 'gaussian':
         for key in range(3):
-            filtered_train[:, :, key] = ndimage.gaussian_filter(data_train[:, :, key], sigma=sigma,  mode='wrap',
+            filtered_train[:, :, key] = ndimage.gaussian_filter(data_train[:, :, key], sigma=sigma, mode='wrap',
                                                                 truncate=500)
-
     elif filter_type == 'median':
         for key in range(3):
-            filtered_train[:, :, key] = ndimage.median_filter(data_train[:, :, key], size=sigma,  mode='wrap')
+            filtered_train[:, :, key] = ndimage.median_filter(data_train[:, :, key], size=sigma, mode='wrap')
 
     elif filter_type == 'noise':
         for key in range(3):
             kappa = np.random.normal(0, 1, size=data_train[:, :, key].shape)
             filtered_train[:, :, key] = data_train[:, :, key] + sigma*kappa
 
-    elif filter_type == 'fourier_sharp' or filter_type == 'physical_sharp':
+    elif filter_type in ('fourier_sharp','physical_sharp'):
         for key in range(3):
             filtered_train[:, :, key] = filters.filter_sharp_array(data_train[:, :, key], filter_type=filter_type,
                                                                    scale_k=sigma)
@@ -195,13 +203,12 @@ def filtering(filter_type, data_train, dimension=2):
     return filtered_train
 
 
-def filtering_test(filter_type, data_test, dimension=2):
+def filtering_test(filter_type, data_test):
     """
-    Filter 3 examples of test set with different filter scales.
+    Filter test example with three different filter scales.
     :param filter_type: type of filter
-    :param data_test: np.array of 3 test examples
-    :param dimension: dimension of velocity field (2 or 3)
-    :return: np.array of filtered fields
+    :param data_test: np.array test example
+    :return: np.array of 3 filtered examples
     """
 
     filtered_test = np.empty((3, ) + data_test.shape)
@@ -214,7 +221,7 @@ def filtering_test(filter_type, data_test, dimension=2):
                                                                       mode='wrap', truncate=500)
     elif filter_type == 'median':
         for i in range(3):
-            for key, value in data_test[i].items():
+            for key in range(3):
                 filtered_test[i, :, :, key] = ndimage.median_filter(data_test[:, :, key], size=sigma[i], mode='wrap')
 
     elif filter_type == 'noise':
@@ -223,7 +230,7 @@ def filtering_test(filter_type, data_test, dimension=2):
                 kappa = np.random.normal(0, 1, size=data_test[:, :, key].shape)
                 filtered_test[i, :, :, key] = data_test[:, :, key] + sigma[i]*kappa
 
-    elif filter_type == 'fourier_sharp' or filter_type == 'physical_sharp':
+    elif filter_type in ('fourier_sharp','physical_sharp'):
         for i in range(3):
             for key in range(3):
                 filtered_test[i, :, :, key] = filters.filter_sharp_array(data_test[:, :, key],
@@ -233,13 +240,34 @@ def filtering_test(filter_type, data_test, dimension=2):
 
     return filtered_test
 
-# def load_test_data():
+
+def load_slices_data(data_folder, size, n_channels, dtype):
+    """ Load data from three big .npz files (xy, xz, yz, slices)
+    :param data_folder: path to .npx files
+    :param size: size of 2D slice, e.g. (256, 256)
+    :param n_channels: number of channels, e.g. u,v,w velocity
+    :param dtype: 32 of 64 bit
+    :return: (np.array of loaded data, number of loaded examples)
+    """
+    n_examples = 4040  # number of examples in 1 slice
+    data_all = np.empty((n_examples*3,) + size + (n_channels,), dtype=dtype)
+    data_all[:n_examples] = np.load(os.path.join(data_folder, 'data_CNNx_y_slice.npz'))['data_train']
+    print('x_y')
+    data_all[n_examples:2 * n_examples] = np.load(os.path.join(data_folder, 'data_CNNx_z_slice.npz'))['data_train']
+    print('x_z')
+    data_all[2 * n_examples:] = np.load(os.path.join(data_folder, 'data_CNNy_z_slice.npz'))['data_train']
+    print('y_z')
+    print(data_all.shape)
+    n_all = len(data_all)
+    print(np.dtype(data_all.dtype))
+    return data_all, n_all
 
 
 def main():
     np.random.seed(1234)
 
     n_points_coarse = 256
+    n_channels = 3
     size = (n_points_coarse, n_points_coarse)
     n_bit = 32
     if n_bit == 32:
@@ -247,46 +275,32 @@ def main():
     elif n_bit == 64:
         dtype = np.float64
 
-    data_folder = os.path.join(data_folder_base, '{}_bit'.format(n_bit))
+    data_folder = DATA_FOLDER_BASE
+    # data_folder = os.path.join(data_folder, '{}_bit'.format(n_bit))
 
-    # # # Load in data
-    # # number_of_examples, number_of_test = data.load_data(data_folder, n_bit)
-    # #
-    # # training data
-    # n_examples = 4040  # number of examples in 1 slice
-    # N_channels = 3
-    # data_all = np.empty((n_examples*3,) + size + (N_channels,), dtype=dtype)
-    # data_all[:n_examples] = np.load(os.path.join(data_folder, 'data_CNNx_y_slice.npz'))['data_train']
-    # print('x_y')
-    # data_all[n_examples:2 * n_examples] = np.load(os.path.join(data_folder, 'data_CNNx_z_slice.npz'))['data_train']
-    # print('x_z')
-    # data_all[2 * n_examples:] = np.load(os.path.join(data_folder, 'data_CNNy_z_slice.npz'))['data_train']
-    # print('y_z')
-    # print(data_all.shape)
-    # n_all = len(data_all)
-    # print(np.dtype(data_all.dtype))
-    # # # shuffle indices
-    # ind = np.arange(n_all)
-    # np.random.shuffle(ind)
-    # # logging.info('Saving truth data')
-    # # save_shuffled_truth_data(data_all, ind, data_folder)
-    #
-    filter_type = "noise"
-    assert filter_type == "gaussian" \
-           or filter_type == "median" \
-           or filter_type == "noise" \
-           or filter_type == "fourier_sharp" \
-           or filter_type == "physical_sharp", \
+    # Load in data from scv format
+    # number_of_examples, number_of_test = load_data(data_folder, n_bit)
+
+    data_all, n_all = load_slices_data(data_folder, size, n_channels, dtype)
+    # shuffle indices
+    ind = np.arange(n_all)
+    np.random.shuffle(ind)
+    # logging.info('Saving truth data')
+    # save_shuffled_truth_data(data_all, ind, data_folder)
+
+    filter_type = "gaussian"
+    assert filter_type in ("gaussian", "median", "noise", "fourier_sharp", "physical_sharp"), \
         'Incorrect filter type: {}'.format(filter_type)
-    # logging.info('Saving filtered data')
-    # filter_and_save_shuffled_data(data_all, ind, filter_type, data_folder)
-    # del data_all
-    # tmp = np.load(os.path.join(data_folder, 'y_train/0.npz'))['y_train']
-    # print(np.dtype(tmp.dtype))
+    logging.info('Saving filtered data')
+    filter_and_save_shuffled_data(data_all, ind, filter_type, data_folder)
+    del data_all
+    tmp = np.load(os.path.join(data_folder, 'y_train/0.npz'))['y_train']
+    print(np.dtype(tmp.dtype))
 
     # # test data
     # data_test = np.empty((3,) + size + (n_channels,))
-    data_test = np.load(os.path.join(data_folder, 'data_CNNx_y_slice.npz'))['data_test'][-1]
+    data_folder = os.path.join(data_folder, 'y_train')
+    data_test = np.load(os.path.join(data_folder, '10000.npz'))['y_train']
     # print('x_y')
     # data_test[1111:2222] = np.load('/home/olga/data/examples/data_CNNx_z_slice.npz')['data_test']
     # print('x_z')
@@ -296,8 +310,6 @@ def main():
 
     filter_and_save_test_data(data_test, filter_type, data_folder)
 
-
-    exit()
 
 if __name__ == '__main__':
     main()

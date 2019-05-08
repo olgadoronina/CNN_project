@@ -53,7 +53,7 @@ def plot_loss_per_epoch(plot_folder, epochs, history):
     ax.set_xticks(range(1, epochs + 2, 2))
     ax.set_xlabel("epoch")
     ax.set_ylabel("loss")
-    fig.subplots_adjust(left=0.1, right=0.95, bottom=0.08, top=0.95)
+    fig.subplots_adjust(left=0.15, right=0.95, bottom=0.14, top=0.95)
 
     fig.savefig(os.path.join(plot_folder, 'loss_per_epoch'))
 
