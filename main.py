@@ -9,7 +9,7 @@ import utils
 
 
 PLOT_FOLDER_BASE = './plots/'
-DATA_FOLDER = '/Users/olgadorr/Classes/2019_spring/Nueral Nets'
+DATA_FOLDER = './data/'
 
 
 def main():

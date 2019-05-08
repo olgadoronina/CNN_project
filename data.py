@@ -8,8 +8,8 @@ import scipy.ndimage as ndimage
 # import utils
 import filters
 
-DATA_FOLDER_SLICES = '/home/olga/data/JohnHopkins/2d_256_tstep2/'
-DATA_FOLDER_BASE = '/Users/olgadorr/Classes/2019_Spring/Nueral Nets/'
+DATA_FOLDER_SLICES = './data/slices/'
+DATA_FOLDER_BASE = './data/'
 
 # def vti_to_numpy(filename):
 #     print(filename)
